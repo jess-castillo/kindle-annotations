@@ -13,18 +13,20 @@ args = parser.parse_args()
 
 def annotate_pdf(annotations, notes):
     doc = fitz.open(f"{book_name}.pdf")
-    last_page = None
+    # last_page = None
     found_anns = set()
     notes_pos = list(notes.keys())
-    note_alert = None
+    counter_highs = 0
+    counter_notes = 0
     note = None
+    not_found = []
     # Extract positions:
     for key in annotations.keys():
+        found = False
         try:
             key_splited = key.split('-')
             for z in key_splited:
                 if z in notes_pos:
-                    note_alert = True
                     # Extracts the note if the index work, if not, ignores the error 'cause I don't need it:
                     try:
                         note = extracted_notes[z]
@@ -36,19 +38,21 @@ def annotate_pdf(annotations, notes):
             # print(annotations[key])
             # print(key)
 
-        # If the annotation was already found, it goes to the next one:
+        # If the annotation was already found, it goes to the next one. 
         if annotations[key] in found_anns:
             continue
+            
 
         for i, page in enumerate(doc):
-            if page == last_page:
-                start = i
-            else:
-                start = 0
+            # if page == last_page:
+            #     start = i
+            # else:
+            #    start = 0
             # Search
             text_instances = page.search_for(annotations[key])
             # If the text is found in a page, then we mark the annotation:
             if len(text_instances) > 0:
+                found = True
                 # We mark the borders:
                 start = text_instances[0].tl
                 stop = text_instances[-1].br
@@ -61,18 +65,28 @@ def annotate_pdf(annotations, notes):
                 highlight.set_info(title=author)
                 # Custom color:
                 highlight.set_colors(stroke=[0.302, 0.82, 0.949])
+                counter_highs += 1
                 # When I include the annotations:
                 if note:
                     highlight.set_info(content=note, title=author)
+                    counter_notes += 1
                     note = None
+
                 highlight.update()
 
                 # Page control over the loop:
-                last_page = page
+                # last_page = page
                 found_anns.add(annotations[key])
                 break
                 
-
+        if not found:
+            not_found.append(annotations[key])
+                
+    print(f"There were {counter_highs} highlights and {counter_notes} notes made!")
+    if len(not_found) > 0:
+        print("\nThe following annotations were not found:")
+        for i in not_found:
+            print(i+"\n")
     ### Output
     doc.save(f"{book_name} Annotaded.pdf", garbage=4, deflate=True, clean=True)
 
@@ -88,6 +102,7 @@ def clippings_filter():
     extracted_text = {}
     extracted_notes = {}
     key2 = None
+
 
     # Flag to indicate whether we are currently processing the desired book
     processing_desired_book = False
@@ -133,6 +148,7 @@ def clippings_filter():
     filtered_dict = {k: v for k, v in extracted_text.items() if v is not None}
     extracted_text.clear()
     extracted_text.update(filtered_dict)
+    print(f"There were {len(extracted_text)} highlights and {len(extracted_notes)} notes found in the clippings file.")
     return extracted_text, extracted_notes
 
 def clean():
@@ -140,9 +156,9 @@ def clean():
 
     if clean == "y":
         os.remove(f"{book_name}.pdf")
-        print("All done!")
+        print("\nAll done!")
     else:
-        print("All done!")
+        print("\nAll done!")
         
 
 if __name__ == "__main__":
